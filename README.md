@@ -64,6 +64,14 @@ This project uses VideoDB as the core perception layer
 - OpenAI-compatible LLM calls for classification, curation, and tool-planning.
 - Notion API for page creation, block writing, and image uploads.
 
+## How it works
+
+1. **Click Start.** Backend provisions a VideoDB sandbox and creates a capture session + Notion page.
+2. **Classifier** identifies what you're watching from the first 20 seconds (topic + content type).
+3. **Event Designer agent** uses OpenAI tool calling to design 3–5 custom detection rules and register them with VideoDB.
+4. **Curator agent** receives multimodal events in 20-second windows and writes structured Notion sections with screenshots.
+5. **Click Stop.** The session finalizes and the sandbox shuts down cleanly.
+
 ## Project Structure
 
 ```text
