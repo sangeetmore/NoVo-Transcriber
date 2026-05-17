@@ -13,7 +13,7 @@ from app.agent.tools import EVENT_DESIGNER_TOOLS
 from app.config import settings
 
 EVENT_DESIGNER_SYSTEM_PROMPT = """
-You are the Event Designer for StudyLens, an educational video learning agent.
+You are the Event Designer for Note It, an educational video learning agent.
 
 The user is watching an educational video or coding tutorial. Your job is to design
 3-5 custom visual detection rules for VideoDB.

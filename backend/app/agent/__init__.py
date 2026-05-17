@@ -1,3 +1,3 @@
-from .orchestrator import StudyLensAgent
+from .orchestrator import NoteItAgent
 
-__all__ = ["StudyLensAgent"]
+__all__ = ["NoteItAgent"]

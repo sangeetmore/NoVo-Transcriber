@@ -12,7 +12,7 @@ from app.config import settings
 from app.models import EventWindow, SessionState
 
 
-class StudyLensAgent:
+class NoteItAgent:
     def __init__(
         self,
         session: SessionState,
@@ -102,8 +102,14 @@ class StudyLensAgent:
         if not self._classified:
             result = await classify_session(window)
             content_type = str(result.get("content_type", "lecture"))
+            topic = str(result.get("topic", "")).strip() or decision.concept_title
             self.session.classifier_result = content_type
+            self.session.classifier_topic = topic
             self.emit(category="classification", icon="🧠", label=f"Classified: {content_type}")
+            new_title = await self.notion.rename_page_for_topic(topic)
+            if new_title:
+                self.session.notion_page_title = new_title
+                self.emit(category="system", icon="📝", label=f"Notes titled: {new_title}")
             self._classified = True
             if conn is not None and scene_index is not None and ws_connection_id:
                 designed = await design_events(conn, scene_index, ws_connection_id, content_type)

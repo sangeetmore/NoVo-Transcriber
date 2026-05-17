@@ -24,6 +24,7 @@ class SessionState(BaseModel):
 
     notion_page_id: str = ""
     notion_page_url: str = ""
+    notion_page_title: str = ""
 
     windows_processed: int = 0
     windows_written: int = 0
@@ -36,6 +37,7 @@ class SessionState(BaseModel):
     last_skip_reason: str = ""
 
     classifier_result: str = ""
+    classifier_topic: str = ""
     events_designed: list[str] = Field(default_factory=list)
     sandbox_status: str = ""
     visual_model_in_use: str = ""

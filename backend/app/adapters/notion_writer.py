@@ -5,6 +5,7 @@ import hashlib
 from datetime import datetime
 from typing import Any
 
+from loguru import logger
 from notion_client import AsyncClient
 from notion_client.errors import APIResponseError
 
@@ -12,6 +13,17 @@ from app.config import settings
 from app.models import CuratorDecision
 
 MAX_TEXT_LEN = 1800
+DEFAULT_NOTE_TOPIC = "Video Notes"
+BAD_IMAGE_CAPTION_PHRASES = (
+    "no visual content",
+    "no visual information",
+    "nothing to screenshot",
+    "nothing useful to capture",
+    "nothing useful to screenshot",
+    "nothing to capture",
+    "transcript alone is sufficient",
+    "audio alone is sufficient",
+)
 
 
 def _split_for_notion(text: str, max_len: int = MAX_TEXT_LEN) -> list[str]:
@@ -35,6 +47,35 @@ def _split_for_notion(text: str, max_len: int = MAX_TEXT_LEN) -> list[str]:
 
 def _rt(text: str) -> list[dict[str, Any]]:
     return [{"type": "text", "text": {"content": text}}]
+
+
+def _clean_image_caption(caption: str) -> str:
+    clean = " ".join((caption or "").split()).strip()
+    if not clean:
+        return ""
+    lowered = clean.lower()
+    if any(phrase in lowered for phrase in BAD_IMAGE_CAPTION_PHRASES):
+        return ""
+    return clean[:180]
+
+
+def _clean_topic(topic: str) -> str:
+    clean = " ".join((topic or "").split()).strip()
+    if not clean:
+        return DEFAULT_NOTE_TOPIC
+    bad_prefixes = ("tutorial:", "lecture:", "video about", "introduction to")
+    lowered = clean.lower()
+    for prefix in bad_prefixes:
+        if lowered.startswith(prefix):
+            clean = clean[len(prefix) :].strip(" :-")
+            break
+    return clean[:80] or DEFAULT_NOTE_TOPIC
+
+
+def format_note_title(topic: str = "") -> str:
+    now = datetime.now()
+    month_day = f"{now.strftime('%b')} {now.day}"
+    return f"Note It · {_clean_topic(topic)} ({month_day} · {now:%H:%M})"
 
 
 class NotionWriter:
@@ -64,8 +105,8 @@ class NotionWriter:
                 pass
         await self.flush()
 
-    async def create_page(self, title_prefix: str) -> tuple[str, str]:
-        title = f"{title_prefix} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    async def create_page(self, topic: str = DEFAULT_NOTE_TOPIC) -> tuple[str, str]:
+        title = format_note_title(topic)
         page = await self._client.pages.create(
             parent={"page_id": settings.notion_parent_page_id},
             properties={"title": {"title": _rt(title)}},
@@ -74,6 +115,20 @@ class NotionWriter:
         self.page_url = f"https://notion.so/{self.page_id.replace('-', '')}"
         self._dedupe.clear()
         return self.page_id, self.page_url
+
+    async def rename_page_for_topic(self, topic: str) -> str:
+        if not self.page_id:
+            return ""
+        title = format_note_title(topic)
+        try:
+            await self._client.pages.update(
+                page_id=self.page_id,
+                properties={"title": {"title": _rt(title)}},
+            )
+            return title
+        except APIResponseError as exc:
+            logger.warning(f"Notion page rename failed: {exc}")
+            return ""
 
     async def queue_blocks(self, blocks: list[dict[str, Any]]) -> None:
         if not blocks or not self.page_id:
@@ -115,15 +170,17 @@ class NotionWriter:
     async def append_image_file_upload(self, file_upload_id: str, caption: str = "") -> None:
         if not file_upload_id:
             return
+        clean_caption = _clean_image_caption(caption)
         block = {
             "type": "image",
             "image": {
                 "type": "file_upload",
                 "file_upload": {"id": file_upload_id},
-                "caption": _rt(caption[:180]) if caption else [],
+                "caption": _rt(clean_caption) if clean_caption else [],
             },
         }
         await self.queue_blocks([block])
+        await self.flush()
 
     async def _flush_loop(self) -> None:
         while self._running:
@@ -140,5 +197,5 @@ class NotionWriter:
             self._buffer = self._buffer[100:]
         try:
             await self._client.blocks.children.append(block_id=self.page_id, children=chunk)
-        except APIResponseError:
-            pass
+        except APIResponseError as exc:
+            logger.warning(f"Notion append failed for {len(chunk)} block(s): {exc}")

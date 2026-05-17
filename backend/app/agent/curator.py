@@ -10,7 +10,7 @@ from app.models import CuratorDecision, EventWindow
 from openai import OpenAI
 
 SYSTEM_PROMPT = """
-You are StudyLens curator.
+You are the Note It curator.
 Turn one educational window into structured study notes.
 
 Rules:

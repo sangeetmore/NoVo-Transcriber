@@ -1,1 +1,1 @@
-"""StudyLens backend package."""
+"""Note It backend package."""

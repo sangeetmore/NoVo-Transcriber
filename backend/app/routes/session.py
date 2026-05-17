@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from loguru import logger
 from pydantic import BaseModel
 
-from app.agent import StudyLensAgent
+from app.agent import NoteItAgent
 from app.config import settings
 from app.models import SessionState, SessionStatus
 from app.routes.activity import emit_activity
@@ -44,7 +46,7 @@ async def _consumer_loop() -> None:
         app_state["consumer_error"] = ""
         vdb = app_state["videodb_client"]
         session: SessionState = app_state["session"]
-        agent: StudyLensAgent = app_state["agent"]
+        agent: NoteItAgent = app_state["agent"]
 
         # Wait for capture client to publish RTStreams (do not fail hard on timing race).
         cap = None
@@ -119,17 +121,33 @@ async def start_session() -> StartResponse:
     vdb = app_state["videodb_client"]
     notion = app_state["notion_writer"]
 
+    start_t = time.perf_counter()
+    step_t = start_t
+
+    def mark_step(name: str) -> None:
+        nonlocal step_t
+        now = time.perf_counter()
+        logger.info(f"start_session timing: {name} step={now - step_t:.2f}s total={now - start_t:.2f}s")
+        step_t = now
+
+    emit_activity(category="system", icon="⏳", label="Starting sandbox...")
     sandbox_id = await vdb.create_sandbox()
+    mark_step("sandbox_ready")
     emit_activity(
         category="system",
         icon="🔧",
         label=f"Sandbox active: {sandbox_id[:12]}…" if sandbox_id else "Sandbox disabled",
     )
+    emit_activity(category="system", icon="📹", label="Creating capture session...")
     capture = vdb.create_capture_session()
+    mark_step("capture_session_created")
     emit_activity(category="system", icon="📹", label="Capture session created")
-    _, page_url = await notion.create_page("StudyLens Hackathon Session")
+    emit_activity(category="system", icon="📝", label="Creating Notion page...")
+    _, page_url = await notion.create_page()
+    mark_step("notion_page_created")
     emit_activity(category="system", icon="📝", label="Notion page created")
     await notion.start()
+    mark_step("notion_writer_started")
 
     session = SessionState(
         session_id=capture["capture_session_id"],
@@ -141,12 +159,14 @@ async def start_session() -> StartResponse:
         audio_model_in_use=settings.audio_index_model,
         notion_page_id=notion.page_id,
         notion_page_url=page_url,
+        notion_page_title="Note It · Video Notes",
     )
     app_state["session"] = session
 
-    agent = StudyLensAgent(session=session, notion_writer=notion, activity_callback=emit_activity)
+    agent = NoteItAgent(session=session, notion_writer=notion, activity_callback=emit_activity)
     app_state["agent"] = agent
     app_state["consumer_task"] = asyncio.create_task(_consumer_loop())
+    mark_step("consumer_task_started")
 
     emit_activity(category="system", icon="🟢", label="Session started")
     return StartResponse(
