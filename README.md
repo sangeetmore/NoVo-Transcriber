@@ -223,21 +223,7 @@ npm run dev
 6. Open the Notion link from the overlay.
 7. Click **Stop Session** when done.
 
-Always stop the session from the UI before shutting down the backend so the sandbox can be stopped cleanly.
-
-## Demo Notes
-
-The system writes notes in rolling windows. It is designed for near-real-time structured note-taking, not instant transcription. Some delay is expected because the app waits for enough transcript/visual/audio signal, curates a note window, extracts screenshots, and writes blocks to Notion.
-
-For best demo recording:
-
-1. Start backend first and let the sandbox prewarm.
-2. Start Electron.
-3. Start screen recording.
-4. Click **Start Session**.
-5. Show the live Agent Activity feed.
-6. Show the generated Notion page.
-7. Click **Stop Session**.
+Always stop the session from the UI before shutting down the backend so the sandbox can be stopped cleanly. The system writes notes in rolling windows. It is designed for near-real-time structured note-taking, not instant transcription. Some delay is expected because the app waits for enough transcript/visual/audio signal, curates a note window, extracts screenshots, and writes blocks to Notion.
 
 ## Current Limitations
 
