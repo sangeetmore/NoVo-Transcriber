@@ -12,11 +12,31 @@ class VideoDBClient:
     def __init__(self) -> None:
         self.conn = videodb.connect(api_key=settings.video_db_api_key)
         self.sandbox: Any = None
+        self._sandbox_task: asyncio.Task[str] | None = None
+
+    # prewarm to avoid delay when user clicks 'start session' button in the app...
+    def prewarm_sandbox(self) -> None:
+        if settings.use_sandbox and self._sandbox_task is None:
+            self._sandbox_task = asyncio.create_task(self.create_sandbox())
+
+    async def ensure_sandbox(self) -> str:
+        if not settings.use_sandbox:
+            return ""
+        if self._sandbox_task is not None:
+            try:
+                return await self._sandbox_task
+            except Exception:
+                self._sandbox_task = None
+                raise
+        return await self.create_sandbox()
 
     async def create_sandbox(self) -> str:
         if not settings.use_sandbox:
             self.sandbox = None
             return ""
+        existing_id = getattr(self.sandbox, "id", "")
+        if existing_id:
+            return str(existing_id)
 
         tier_name = "small" if settings.sandbox_tier.lower() == "small" else "medium"
         last_error: Exception | None = None

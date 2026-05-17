@@ -130,8 +130,8 @@ async def start_session() -> StartResponse:
         logger.info(f"start_session timing: {name} step={now - step_t:.2f}s total={now - start_t:.2f}s")
         step_t = now
 
-    emit_activity(category="system", icon="⏳", label="Starting sandbox...")
-    sandbox_id = await vdb.create_sandbox()
+    emit_activity(category="system", icon="⏳", label="Using warmed sandbox...")
+    sandbox_id = await vdb.ensure_sandbox()
     mark_step("sandbox_ready")
     emit_activity(
         category="system",

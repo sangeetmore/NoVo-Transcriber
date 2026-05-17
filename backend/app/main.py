@@ -14,8 +14,10 @@ from app.routes.session import app_state
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    app_state["videodb_client"] = VideoDBClient()
+    vdb = VideoDBClient()
+    app_state["videodb_client"] = vdb
     app_state["notion_writer"] = NotionWriter()
+    vdb.prewarm_sandbox()
     yield
     vdb = app_state.get("videodb_client")
     if vdb:
