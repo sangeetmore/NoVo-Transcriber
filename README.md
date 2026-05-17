@@ -1,8 +1,9 @@
-# Note It
+# VideoDB Online Hackathon - Note It
 
-<p align="center">
-  <img src="assets/note-it-logo.svg" alt="Note It logo" width="620" />
-</p>
+```text
+                  note·it
+        Watch any video. Get clean notes.
+```
 
 **Watch any video. Get clean notes.**
 
@@ -30,6 +31,12 @@ Note It turns a video-watching session into a structured Notion study guide:
 - [Backpropagation in Neural Networks](https://www.notion.so/Note-It-Backpropagation-in-Neural-Networks-May-17-18-19-36369acc1935810899aff9df93c4152d?source=copy_link)
 - [Gradient Descent as an Optimization Method](https://www.notion.so/Note-It-Gradient-Descent-as-an-Optimization-Method-May-17-20-27-36369acc1935812f893fca5a664a9451?source=copy_link)
 - [Neural Networks as the Basis of Deep Learning](https://www.notion.so/Note-It-Neural-Networks-as-the-Basis-of-Deep-Learning-May-17-16-51-36369acc193581ee938ac4473cc49ad7?source=copy_link)
+
+## Architecture
+
+<p align="center">
+  <img src="assets/note_it_architecture.png" alt="Note It architecture diagram" width="900" />
+</p>
 
 ## VideoDB Usage
 
