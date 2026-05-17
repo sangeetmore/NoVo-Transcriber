@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# backend runtime output
+backend/.pytest_cache/
+backend/extracted_frames/
+backend/*.log
+
+# frontend placeholder
+app/node_modules/
+app/dist/
+
+test-scripts/
+docs/
