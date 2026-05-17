@@ -1,11 +1,9 @@
 # VideoDB Online Hackathon - Note It
 
-```text
-                  note·it
-        Watch any video. Get clean notes.
-```
-
-**Watch any video. Get clean notes.**
+<p align="center">
+  <strong>note·it</strong><br />
+  Watch any video. Get clean notes.
+</p>
 
 Note It is a desktop learning agent for educational videos. It runs as a small floating Electron overlay while you watch a video, captures screen/audio through VideoDB, indexes the live stream with multimodal models, curates structured study notes, attaches screenshots, and writes the result into Notion.
 
