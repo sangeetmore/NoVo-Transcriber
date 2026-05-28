@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useActivityStream } from "./hooks/useActivityStream";
-import { getSessionStatus, startSession, stopSession } from "./services/backend";
+import { getSessionStatus, startSession, stopSession, startAudioCapture } from "./services/backend";
 
 type SessionStatus = "idle" | "starting" | "recording" | "stopping" | "error";
 type LocalActivity = {
@@ -27,10 +27,10 @@ function formatTime(timestamp: number) {
 }
 
 function requireNoteItBridge() {
-  if (!window.noteit?.startCapture || !window.noteit?.stopCapture || !window.noteit?.openExternal) {
-    throw new Error("Electron bridge unavailable. Restart the Note It Electron app; do not use the browser tab.");
+  if (!window.novotranscriber?.startCapture || !window.novotranscriber?.stopCapture || !window.novotranscriber?.openExternal) {
+    throw new Error("Electron bridge unavailable. Restart the NoVo Transcriber Electron app; do not use the browser tab.");
   }
-  return window.noteit;
+  return window.novotranscriber;
 }
 
 function activityKey(event: { timestamp: number; category: string; label: string; detail?: string }) {
@@ -43,9 +43,11 @@ export default function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [pipelineHint, setPipelineHint] = useState("");
+  const [micLevel, setMicLevel] = useState(0);
   const [localEvents, setLocalEvents] = useState<LocalActivity[]>([]);
   const startedAtRef = useRef<number | null>(null);
   const activityListRef = useRef<HTMLDivElement | null>(null);
+  const audioCaptureRef = useRef<{ stop: () => void } | null>(null);
   const { events, connected, clearEvents } = useActivityStream();
   const visibleEvents = [...events, ...localEvents]
     .filter((event, index, all) => all.findIndex((candidate) => activityKey(candidate) === activityKey(event)) === index)
@@ -79,8 +81,8 @@ export default function App() {
   }, [visibleEvents.length]);
 
   useEffect(() => {
-    if (!window.noteit?.onCaptureLog) return;
-    return window.noteit.onCaptureLog((payload) => {
+    if (!window.novotranscriber?.onCaptureLog) return;
+    return window.novotranscriber.onCaptureLog((payload) => {
       const isError = payload.level === "error";
       setLocalEvents((prev) => [
         ...prev.slice(-49),
@@ -107,9 +109,9 @@ export default function App() {
       {
         type: "local_event",
         timestamp: Date.now() / 1000,
-        category: window.noteit?.startCapture ? "capture" : "error",
-        icon: window.noteit?.startCapture ? "🎥" : "⚠️",
-        label: window.noteit?.startCapture
+        category: window.novotranscriber?.startCapture ? "capture" : "error",
+        icon: window.novotranscriber?.startCapture ? "🎥" : "⚠️",
+        label: window.novotranscriber?.startCapture
           ? "Electron bridge ready"
           : "Electron bridge unavailable. Capture cannot start from this window.",
       },
@@ -185,10 +187,30 @@ export default function App() {
     setElapsedSeconds(0);
 
     try {
-      const noteit = requireNoteItBridge();
+      const novotranscriber = requireNoteItBridge();
       const data = await startSession();
       setNotionPageUrl(data.notion_page_url);
-      const capture = await noteit.startCapture({
+      
+      // Native Electron/React capture
+      audioCaptureRef.current = await startAudioCapture(
+        (msg, isError) => {
+          setLocalEvents((prev) => [
+            ...prev.slice(-49),
+            {
+              type: "local_event",
+              timestamp: Date.now() / 1000,
+              category: "capture",
+              icon: isError ? "⚠️" : "🎙️",
+              label: msg,
+            },
+          ]);
+        },
+        (level) => {
+          setMicLevel(level);
+        }
+      );
+
+      const capture = await novotranscriber.startCapture({
         capture_session_id: data.capture_session_id,
         client_token: data.client_token,
       });
@@ -199,11 +221,11 @@ export default function App() {
           timestamp: Date.now() / 1000,
           category: "capture",
           icon: "🎥",
-          label: `Capture process started${capture.pid ? ` (pid ${capture.pid})` : ""}`,
+          label: `Backend synced`,
         },
       ]);
       startedAtRef.current = Date.now();
-      setPipelineHint("Starting capture. Accept permissions, then play your video.");
+      setPipelineHint("Capturing local audio. Play your video.");
       setSessionStatus("recording");
     } catch (error) {
       try {
@@ -221,10 +243,15 @@ export default function App() {
     setErrorMessage("");
 
     try {
+      if (audioCaptureRef.current) {
+        audioCaptureRef.current.stop();
+        audioCaptureRef.current = null;
+      }
       await requireNoteItBridge().stopCapture();
       await stopSession();
       startedAtRef.current = null;
       setElapsedSeconds(0);
+      setMicLevel(0);
       setNotionPageUrl("");
       setPipelineHint("");
       setSessionStatus("idle");
@@ -237,12 +264,12 @@ export default function App() {
   return (
     <main className="app-frame">
       <div className="title-bar">
-        <div className="drag-handle" aria-label="Drag Note It window" />
+        <div className="drag-handle" aria-label="Drag NoVo Transcriber window" />
       </div>
 
       <section className="hero">
         <h1 className="brand">
-          note<span className="brand-dot">·</span>it
+          NoVo Transcriber
         </h1>
         <p className="tagline">Watch any video. Get clean notes.</p>
       </section>
@@ -268,9 +295,29 @@ export default function App() {
         </button>
         <p className={`hint ${isRecording ? "watch-now" : ""}`}>
           {isRecording
-            ? pipelineHint || "Play your video now. Note It is watching."
+            ? pipelineHint || "Play your video now. NoVo Transcriber is watching."
             : "Start a session, then play your educational video."}
         </p>
+        {isRecording && (
+          <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem", color: "var(--foreground-muted)" }}>
+            <span>Mic Input:</span>
+            <div style={{ display: "flex", gap: "2px", height: "12px", alignItems: "flex-end" }}>
+              {Array.from({ length: 15 }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: "4px",
+                    backgroundColor: (i / 15) < micLevel ? "var(--primary-light)" : "var(--border)",
+                    height: `${Math.max(20, (i / 15) * 100)}%`,
+                    borderRadius: "2px",
+                    transition: "background-color 0.1s ease",
+                  }}
+                />
+              ))}
+            </div>
+            <span style={{ minWidth: "40px" }}>{Math.round(micLevel * 100)}%</span>
+          </div>
+        )}
         {errorMessage && <p className="error-text">{errorMessage}</p>}
       </section>
 
@@ -278,7 +325,7 @@ export default function App() {
         <div className="section-label">Notes</div>
         {notionPageUrl ? (
           <>
-            <div className="notion-title">Note It session notes</div>
+            <div className="notion-title">NoVo Transcriber session notes</div>
             <button
               className="link-btn"
               type="button"

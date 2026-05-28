@@ -35,7 +35,7 @@ Rules:
 """
     try:
         raw = await call_llm_json(
-            system_prompt="You are the Note It classifier. Output JSON only.",
+            system_prompt="You are the NoVo Transcriber classifier. Output JSON only.",
             user_prompt=prompt,
             model=settings.tool_planner_model,
         )

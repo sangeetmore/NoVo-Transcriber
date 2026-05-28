@@ -1,1 +1,1 @@
-"""Note It backend package."""
+"""NoVo Transcriber backend package."""

@@ -159,7 +159,7 @@ async def start_session() -> StartResponse:
         audio_model_in_use=settings.audio_index_model,
         notion_page_id=notion.page_id,
         notion_page_url=page_url,
-        notion_page_title="Note It · Video Notes",
+        notion_page_title="NoVo Transcriber · Video Notes",
     )
     app_state["session"] = session
 

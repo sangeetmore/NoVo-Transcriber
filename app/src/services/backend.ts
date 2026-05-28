@@ -1,5 +1,6 @@
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
 const WS_URL = BACKEND_URL.replace(/^http/, "ws") + "/ws/activity";
+const AUDIO_WS_URL = BACKEND_URL.replace(/^http/, "ws") + "/ws/audio";
 
 export type StartResponse = {
   session_id: string;
@@ -80,4 +81,107 @@ export function openActivitySocket(
   };
 
   return ws;
+}
+
+export async function startAudioCapture(
+  onLog: (msg: string, isError?: boolean) => void,
+  onVolume?: (level: number) => void
+): Promise<{ stop: () => void }> {
+  try {
+    let stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+      video: false,
+    });
+
+    // Try to find a "Monitor" device (system audio on Linux)
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const monitorDevice = devices.find(
+      (d) => d.kind === "audioinput" && d.label.toLowerCase().includes("monitor")
+    );
+
+    if (monitorDevice) {
+      // Re-request stream with the monitor device
+      stream.getTracks().forEach((t) => t.stop());
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: { exact: monitorDevice.deviceId },
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+        video: false,
+      });
+      onLog(`Using system audio device: ${monitorDevice.label}`);
+    } else {
+      onLog("Using default microphone (monitor device not found)");
+    }
+
+    const ws = new WebSocket(AUDIO_WS_URL);
+    let recorder: MediaRecorder | null = null;
+    let audioCtx: AudioContext | null = null;
+    let analyser: AnalyserNode | null = null;
+    let micSource: MediaStreamAudioSourceNode | null = null;
+    let volumeInterval: number | null = null;
+
+    if (onVolume) {
+      audioCtx = new AudioContext();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      micSource = audioCtx.createMediaStreamSource(stream);
+      micSource.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      volumeInterval = window.setInterval(() => {
+        if (!analyser) return;
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / dataArray.length;
+        // Map average volume (0-255) to roughly 0-1
+        onVolume(Math.min(1, avg / 128));
+      }, 100);
+    }
+
+    ws.onopen = () => {
+      onLog("Audio WebSocket connected.");
+      recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+          ws.send(e.data);
+        }
+      };
+      // Send chunks every 250ms
+      recorder.start(250);
+      onLog("Audio capture started.");
+    };
+
+    ws.onerror = () => onLog("Audio WebSocket error.", true);
+    ws.onclose = () => onLog("Audio WebSocket closed.");
+
+    return {
+      stop: () => {
+        if (volumeInterval) window.clearInterval(volumeInterval);
+        if (micSource) micSource.disconnect();
+        if (audioCtx) audioCtx.close();
+        
+        if (recorder && recorder.state !== "inactive") {
+          recorder.stop();
+        }
+        stream.getTracks().forEach((t) => t.stop());
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+        onLog("Audio capture stopped.");
+      },
+    };
+  } catch (err) {
+    onLog(`Failed to start audio capture: ${err instanceof Error ? err.message : String(err)}`, true);
+    throw err;
+  }
 }

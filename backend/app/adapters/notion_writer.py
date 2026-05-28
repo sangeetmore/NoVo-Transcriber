@@ -75,7 +75,7 @@ def _clean_topic(topic: str) -> str:
 def format_note_title(topic: str = "") -> str:
     now = datetime.now()
     month_day = f"{now.strftime('%b')} {now.day}"
-    return f"Note It · {_clean_topic(topic)} ({month_day} · {now:%H:%M})"
+    return f"NoVo Transcriber · {_clean_topic(topic)} ({month_day} · {now:%H:%M})"
 
 
 class NotionWriter:

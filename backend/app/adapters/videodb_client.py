@@ -117,7 +117,7 @@ class VideoDBClient:
     def create_capture_session(self) -> dict[str, str]:
         cap = self.conn.create_capture_session(
             end_user_id="noteit_user",
-            metadata={"app": "note-it", "phase": "hackathon"},
+            metadata={"app": "novo-transcriber", "phase": "hackathon"},
         )
         token = self.conn.generate_client_token(expires_in=settings.capture_client_token_ttl_seconds)
         return {"capture_session_id": cap.id, "client_token": token}

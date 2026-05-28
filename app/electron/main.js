@@ -28,51 +28,13 @@ function stopCaptureClient() {
 }
 
 function startCaptureClient(args) {
-  if (!args?.capture_session_id || !args?.client_token) {
-    throw new Error("Missing capture_session_id or client_token");
+  if (!args?.capture_session_id) {
+    throw new Error("Missing capture_session_id");
   }
 
   stopCaptureClient();
-
-  const backendDir = resolve(__dirname, "../../backend");
-  const scriptPath = resolve(backendDir, "scripts/capture_client.py");
-  const pythonBin = process.env.NOTEIT_PYTHON || process.env.PYTHON_BIN || "python";
-
-  emitCaptureLog("info", `Starting Python capture client: ${pythonBin}`);
-  emitCaptureLog("info", `Capture script: ${scriptPath}`);
-
-  captureProcess = spawn(pythonBin, [scriptPath, args.capture_session_id, args.client_token], {
-    cwd: backendDir,
-    env: {
-      ...process.env,
-      CAPTURE_CLIENT_LISTEN_SECONDS: process.env.CAPTURE_CLIENT_LISTEN_SECONDS || "900",
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  captureProcess.stdout?.on("data", (data) => {
-    for (const line of data.toString().split(/\r?\n/).filter(Boolean)) {
-      emitCaptureLog("info", line.trim());
-    }
-  });
-
-  captureProcess.stderr?.on("data", (data) => {
-    for (const line of data.toString().split(/\r?\n/).filter(Boolean)) {
-      emitCaptureLog("error", line.trim());
-    }
-  });
-
-  captureProcess.on("error", (error) => {
-    emitCaptureLog("error", `Failed to start capture client: ${error.message}`);
-    captureProcess = null;
-  });
-
-  captureProcess.on("exit", (code) => {
-    emitCaptureLog(code === 0 ? "info" : "error", `Capture client exited with code ${code}`);
-    captureProcess = null;
-  });
-
-  return { ok: true, pid: captureProcess.pid };
+  emitCaptureLog("info", "Capture triggered natively via React frontend.");
+  return { ok: true };
 }
 
 function createMainWindow() {
@@ -88,7 +50,7 @@ function createMainWindow() {
     minimizable: true,
     closable: true,
     skipTaskbar: false,
-    title: "Note It",
+    title: "NoVo Transcriber",
     titleBarStyle: "hiddenInset",
     webPreferences: {
       preload: join(__dirname, "preload.cjs"),
@@ -102,10 +64,10 @@ function createMainWindow() {
   // try {
   //   mainWindow.setContentProtection(true);
   // } catch (error) {
-  //   console.warn("[note-it] content protection unavailable:", error);
+  //   console.warn("[novo-transcriber] content protection unavailable:", error);
   // }
 
-  mainWindow.loadURL("http://127.0.0.1:5173");
+  mainWindow.loadURL("http://localhost:5173");
 }
 
 app.whenReady().then(() => {
