@@ -1,4 +1,4 @@
-# VideoDB Online Hackathon - Note It
+# NoVo - Transcriber
 
 <p align="center">
   <strong>note·it</strong><br />
@@ -6,8 +6,6 @@
 </p>
 
 Note It is a desktop learning agent for educational videos. It runs as a small floating Electron overlay while you watch a video, captures screen/audio through VideoDB, indexes the live stream with multimodal models, curates structured study notes, attaches screenshots, and writes the result into Notion.
-
-Built for the VideoDB Online Hackathon.
 
 ## What It Does
 
